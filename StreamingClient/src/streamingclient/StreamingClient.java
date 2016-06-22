@@ -20,6 +20,9 @@ public class StreamingClient {
 
 	private static final String LOOPBACK = "127.0.0.1";
 	private static final int PORT = 8080;
+	
+	//server reference
+	public static Socket server = null;
 
 	// Heartbeat message
 	private static final String HEARTBEAT = "heartbeat";
@@ -42,7 +45,7 @@ public class StreamingClient {
 	public static void main(String[] args) {
 		
 		// Server reference
-		Socket server = null;
+		//Socket server = null;
 
 		// Stdin scanner
 		Scanner sc = new Scanner(System.in);
