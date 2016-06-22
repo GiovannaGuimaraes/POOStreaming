@@ -6,63 +6,101 @@
 
 package streamingclient;
 
-import javafx.application.Application;
-import javafx.scene.*;
-import javafx.scene.media.*;
-import javafx.stage.Stage;
+import java.util.*;
+import java.io.*;
+import java.net.*;
 
 /**
  *
  * @author Rafael Augusto Monteiro - 9293095
  */
-public class StreamingClient extends Application {
-	final String name = "teste1.mp4";
+public class StreamingClient {
+	
+	// private final String name = "teste1.mp4";
+
+	private static final String LOOPBACK = "127.0.0.1";
+	private static final int PORT = 8080;
+
+	// Heartbeat message
+	private static final String HEARTBEAT = "heartbeat";
+
+	// Message delimiter
+	public static final String DELIM = " ";
+
+	// Client I/O streams
+	private static Scanner clientIn = null;
+	private static PrintStream clientOut = null;
+	
+	// Connection flag
+	private static boolean connected = false;
+
+	public static synchronized void setConnected(boolean b){ connected = b; }
 
 	/**
 	 * @param args the command line arguments
 	 */
 	public static void main(String[] args) {
-		return;
+		
+		// Server reference
+		Socket server = null;
+
+		// Stdin scanner
+		Scanner sc = new Scanner(System.in);
+		
+
+		// Terminal commands for client
+		ClientListener term = new ClientListener();
+
+		String msg;
+		String received;
+		
+		String[] tokens;
+
+		// String ip = sc.nextLine();
+		// int port = sc.nextInt();
+
+		// Try to connect to host
+		try{
+			server = new Socket(LOOPBACK, PORT);
+			connected = true;
+		} catch(Exception e){
+			System.err.println("Connection error " + e);
+			System.exit(1);
+		}
+
+		// Try to open I/O streams
+		try{
+			clientIn = new Scanner(server.getInputStream());
+			clientOut = new PrintStream(server.getOutputStream());
+		} catch(Exception e){
+			System.err.println("Error opening I/O streams " + e);
+			System.exit(1);
+		}
+
+		term.start();
+
+		// Send initial msg
+		msg = "DEBUG FIRST MSG";
+		sendMessage(msg);
+		msg = "";	// Terminate intial message
+		sendMessage(msg);
+
+		while(connected){
+			if(clientIn.hasNextLine() && connected){
+
+				msg = clientIn.nextLine();
+
+				switch(msg){
+				case HEARTBEAT:
+					sendMessage(HEARTBEAT);
+					break;
+				}
+			}
+		}
 	}
 	
-	//the entire window is called "stage"
-	//aka "JFrame" in swing
-	
-	//the content inside the stage is the scene
-	//aka "JPanel" in swing
-
-	/**
-	 * Our main JavaFX application runs on this method.
-	 * The "launch" method invokes this one.
-	 * @param primaryStage
-	 * @throws Exception 
-	 */
-	@Override
-	public void start(Stage primaryStage) throws Exception {
-		//creating a stackpane for this scene
-		StackPane root = new StackPane();
-		//creating the window
-		primaryStage.setTitle("Window title");
-		
-		//creating a Media object that holds the media to be played
-		Media m = new Media("file:///" + path);
-		//creating a MediaPlayer object that controls the created media
-		MediaPlayer mp = new MediaPlayer(m);
-		//creating a mediaView object that displays the media
-		MediaView mv = new MediaView(mp);
-		
-		//adding the created mediaView to the stackpane
-		root.getChildren().add(mv);
-		
-		Scene sc = new Scene(root, Color.BLACK);
-		
-		primaryStage.setMinHeight(720);
-		primaryStage.setMinWidth(1280);
-		
-		primaryStage.setScene(sc);
-		//showing my stage
-		primaryStage.show();
-		mp.play();
+	public static synchronized void sendMessage(String msg){
+		System.out.println("[Debug]: sending \"" + msg + "\"");
+		clientOut.println(msg);
 	}
-
 }
