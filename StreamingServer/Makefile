@@ -1,4 +1,6 @@
 args:=
+extern_libs=$(CLASSPATH):extern/JMF/*:
+class_dir=build/classes/
 
 all: clean pre-compile compile
 
@@ -10,7 +12,7 @@ pre-compile:
 # -Xlint extra warning options (can be specified by -Xlint:<option>)
 compile:
 	@echo compiling...
-	@javac -Xlint -d build/classes/ src/streamingserver/*.java
+	@javac -Xlint -cp  $(extern_libs) -d  $(class_dir) src/streamingserver/*.java
 
 run:
 	java -cp build/classes/ streamingserver/StreamingServer $(args)
