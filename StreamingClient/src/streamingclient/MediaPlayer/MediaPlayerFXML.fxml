@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.text.*?>
+<?import javafx.scene.media.*?>
+<?import javafx.scene.shape.*?>
+<?import javafx.scene.image.*?>
+<?import javafx.scene.effect.*?>
+<?import javafx.geometry.*?>
+<?import java.lang.*?>
+<?import java.util.*?>
+<?import javafx.scene.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<GridPane fx:id="gp" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="100.0" minWidth="100.0" prefHeight="480.0" prefWidth="640.0" vgap="7.0" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="MediaPlayer.MediaPlayerController">
+  <columnConstraints>
+    <ColumnConstraints halignment="CENTER" hgrow="ALWAYS" maxWidth="1.7976931348623157E308" />
+  </columnConstraints>
+  <rowConstraints>
+    <RowConstraints />
+    <RowConstraints maxHeight="1.7976931348623157E308" percentHeight="90.0" />
+      <RowConstraints minHeight="45.0" percentHeight="10.0" prefHeight="3045.0" vgrow="ALWAYS" />
+  </rowConstraints>
+   <children>
+      <HBox alignment="BOTTOM_CENTER" blendMode="SRC_ATOP" minHeight="45.0" minWidth="100.0" spacing="10.0" GridPane.rowIndex="2">
+         <children>
+            <VBox alignment="CENTER">
+               <children>
+                  <HBox alignment="CENTER" spacing="10.0" VBox.vgrow="NEVER">
+                     <children>
+                        <Button fx:id="playButton" contentDisplay="CENTER" maxHeight="40.0" maxWidth="40.0" minHeight="40.0" minWidth="40.0" mnemonicParsing="false" onAction="#handlePlayButton" prefHeight="40.0" prefWidth="40.0">
+                           <graphic>
+                              <StackPane maxHeight="40.0" maxWidth="40.0" minHeight="40.0" minWidth="40.0" prefHeight="40.0" prefWidth="40.0">
+                                 <children>
+                                    <HBox fx:id="stopBar" alignment="CENTER" prefHeight="100.0" prefWidth="200.0" spacing="5.0" visible="false">
+                                       <children>
+                                          <Rectangle arcHeight="5.0" arcWidth="5.0" height="30.0" stroke="BLACK" strokeType="INSIDE" width="13.0" />
+                                          <Rectangle arcHeight="5.0" arcWidth="5.0" height="30.0" stroke="BLACK" strokeType="INSIDE" width="13.0" />
+                                       </children>
+                                    </HBox>
+                                    <Polygon fx:id="playTriangle" rotate="90.0" scaleX="0.27" scaleY="0.27" stroke="BLACK" strokeType="INSIDE">
+                                      <points>
+                                        <Double fx:value="-50.0" />
+                                        <Double fx:value="40.0" />
+                                        <Double fx:value="50.0" />
+                                        <Double fx:value="40.0" />
+                                        <Double fx:value="0.0" />
+                                        <Double fx:value="-60.0" />
+                                      </points>
+                                    </Polygon>
+                                 </children>
+                              </StackPane>
+                           </graphic>
+                        </Button>
+                        <Button fx:id="stopButton" maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" mnemonicParsing="false" onAction="#handleStopButton" prefHeight="40.0" prefWidth="40.0">
+                           <graphic>
+                              <Rectangle arcHeight="5.0" arcWidth="5.0" height="24.0" stroke="BLACK" strokeType="INSIDE" width="24.0" />
+                           </graphic>
+                        </Button>
+                     </children>
+                  </HBox>
+               </children>
+            </VBox>
+            <VBox alignment="CENTER" HBox.hgrow="ALWAYS">
+               <children>
+                  <Label fx:id="fileLabel" alignment="TOP_LEFT" />
+                  <Slider fx:id="progressSlider" maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" />
+               </children>
+               <padding>
+                  <Insets right="10.0" />
+               </padding>
+               <HBox.margin>
+                  <Insets bottom="5.0" left="5.0" right="5.0" top="10.0" />
+               </HBox.margin>
+            </VBox>
+            <VBox alignment="CENTER" prefHeight="200.0" prefWidth="100.0">
+               <children>
+                  <Label alignment="TOP_LEFT" text="Volume" />
+                  <Slider fx:id="volumeSlider" prefHeight="14.0" prefWidth="68.0" value="100.0" />
+               </children>
+            </VBox>
+         </children>
+         <padding>
+            <Insets left="5.0" right="5.0" />
+         </padding>
+      </HBox>
+      <TilePane fx:id="tp" alignment="CENTER" minHeight="-Infinity" minWidth="-Infinity" prefHeight="200.0" prefWidth="200.0" style="-fx-background-color: #000000;" GridPane.halignment="CENTER" GridPane.rowIndex="1" GridPane.valignment="CENTER">
+         <children>
+            <MediaView fx:id="mView" />
+         </children>
+         <GridPane.margin>
+            <Insets />
+         </GridPane.margin>
+      </TilePane>
+   </children>
+   <padding>
+      <Insets bottom="3.0" left="3.0" right="3.0" />
+   </padding>
+</GridPane>
