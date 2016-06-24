@@ -1,13 +1,32 @@
-
+// checked
 package streamingserver;
 
 import java.io.*;
-import java.util.*;
-import java.net.*;
+
+import java.util.Scanner;
+
+import java.net.Socket;
+import java.net.ServerSocket;
+
 
 // Client handler in separate thread (non-blockable)
 // No access modifier so only this package (streamingserver) can access
 class ServerThread extends Thread {
+
+	//========
+	//  Constants
+	//========
+
+	// Message delimiter
+	public static final String DELIM = " ";
+	// Maximum number of iterations until fetch is dropped
+	public static final int MAX_ITERATIONS = 20000;
+	public static final int HB_TIMEOUT = 10;
+
+
+	//========
+	//  Attributes
+	//========
 
 	// Server reference for communication
 	private StreamingServer server;
@@ -18,14 +37,14 @@ class ServerThread extends Thread {
 	private Scanner serverIn;
 	private PrintStream serverOut;	// debug?
 
+	// Data transfer
+	private ServerSocket dataSocket = null;
+	private FileInputStream fileStream;
+
 	// Periodicaly sends message to client to check connection
 	private Heartbeat hb;
 	private boolean connection;
 	private boolean hbHasBeenReceived;
-
-	// Message delimiter
-	public static final String DELIM = " ";
-
 
 
 	// Constructor
@@ -36,13 +55,13 @@ class ServerThread extends Thread {
 
 		// Open communication streams
 		try{
-			this.serverIn = new Scanner(client.getInputStream());
-			this.serverOut = new PrintStream(client.getOutputStream());
+			this.serverIn = new Scanner(this.client.getInputStream());
+			this.serverOut = new PrintStream(this.client.getOutputStream());
 		} catch(IOException e){
-			System.err.println("Could not open I/O communications, " + e);
+			System.err.println("[Debug @ ServerThread constructor] Could not open I/O communications, " + e);
 		}
 
-		this.hb = new Heartbeat(this, this.serverIn, this.serverOut);
+		this.hb = new Heartbeat(this, this.serverIn, this.serverOut, HB_TIMEOUT);
 		this.connection = true;		// Start assuming connection is OK
 		this.hbHasBeenReceived = true;	// Start assuming connection is OK
 	}
@@ -56,13 +75,18 @@ class ServerThread extends Thread {
 	public boolean isConnected() { return this.connection; }
 
 	// Shutdown server thread
-	public synchronized void shutdown() throws Exception {
-		System.out.println("[Debug]: shutting down connection...");
-		// TODO: Do cleanup (close streams, files, handler, hooks)
+	public void shutdown() {
 
-		this.hb.join();
-		serverIn.close();
-		serverOut.close();
+		System.out.println("[Debug]: shutting down connection...");
+
+		this.hb.interrupt();
+		try{
+			this.serverOut.println("Close");
+			this.serverIn.close();
+			this.serverOut.close();
+		// Scanner is already closed
+		} catch(IllegalStateException e){}
+
 		this.connection = false;
 	}
 
@@ -75,6 +99,7 @@ class ServerThread extends Thread {
 		String[] tokens = null;
 		// Server response
 		String response = null;
+		boolean requestIsReady;
 
 		// Start heartbeat checkup routine
 		this.hb.start();
@@ -87,16 +112,20 @@ class ServerThread extends Thread {
 			System.out.println(msg);
 			if(msg.isEmpty()) break;
 		}
-		System.out.println("\n[Debug]: done!");
-
+		System.out.println("[Debug]: done!");
 		System.out.println("[Debug]: starting heartbeat timer");
-		// Start heartbeat scheduling - each 30s send heartbeat signal
 
 		// Get & process requests
 		while(this.connection){
-			if(this.serverIn.hasNextLine()){
+			try{
+				requestIsReady = this.serverIn.hasNextLine();
+			} catch(IllegalStateException e){
+				System.err.println("[Debug @ ServerThread.run()]: client I/O closed, shutting thread down");
+				requestIsReady = false;
+			}
+			if(requestIsReady){
 
-				// System.out.println("[Debug]: fetching request");
+				// Waiting for requests
 				msg = this.serverIn.nextLine();
 				System.out.println("[Debug]: [Received]: \"" + msg + "\"");
 
@@ -104,38 +133,213 @@ class ServerThread extends Thread {
 
 				// Client requests
 				switch(tokens[0]){
-				case "List":		// List <int>
+				case "List":		// List
+					sendMessage("ListRes " + listFiles());
 					break;
-				case "Fetch":		// Fetch <path>
+				
+				case "Fetch":		// Fetch <file name>
+					
+					if(tokens.length == 1){
+						sendMessage("Error NO_FILE_REQUESTED");
+						break;
+					}
+					
+					try{
+						fetch(tokens[1]);
+					} catch(FileNotFoundException e){
+						sendMessage("Error FILE_NOT_FOUND");
+					} catch(Exception e){}
 					break;
+				
 				case "Close":		// Close
 					
 					try{
+						this.fileStream.close();
 						shutdown();
-					} catch(Exception e){}
+					} catch(Exception e){
+						return;
+					}
 
 					break;
+				
 				case Heartbeat.HEARTBEAT:	// HEARTBEAT
 					setHeartbeat(true);
 					break;
+				
 				default:		// Request msg re-send
+					sendMessage("Error INVALID_REQUEST");
 					break;
 				}
 			}
 		}
 	}
 
-	public void listFiles(){
+	public void sendMessage(String msg){
+		this.serverOut.println(msg);
+		System.out.println("[Debug]: [Sending]: \"" + msg + "\"");
+	}
 
-		File folder = new File("");
+	public String listFiles(){
+
+		File folder = new File(StreamingServer.MEDIA_DIR);
 		File[] listOfFiles = folder.listFiles();
+		String msg = "";
 
-		for (int i = 0; i < listOfFiles.length; i++) {
-			if (listOfFiles[i].isFile()) {
-				System.out.println("File " + listOfFiles[i].getName());
-			} else if (listOfFiles[i].isDirectory()) {
-				System.out.println("Directory " + listOfFiles[i].getName());
+		// List files in MEDIA_DIR 
+		for(int i = 0; i < listOfFiles.length; i++)
+			msg += listOfFiles[i].getName() + DELIM;
+
+		return msg;
+	}
+
+	public void fetch(String fileName) throws FileNotFoundException, IOException {
+
+		// File vars
+		String path = "media/" + fileName;
+		this.fileStream = new FileInputStream(new File(path));
+		
+		// Packet vars
+		int pktNb = 0;
+		int length;
+		MediaPacket mp = new MediaPacket();
+		byte[] content = new byte[MediaPacket.CONTENT_SIZE];
+		byte[] nextContent = new byte[MediaPacket.CONTENT_SIZE];
+
+		// Communication vars
+		Socket s = null;
+		Scanner dataRes = null;
+		DataOutputStream dataOut = null;
+		byte[] response = null;
+
+		// Send start message
+		sendMessage("FetchRes start");
+
+		// Prepare data socket
+		this.dataSocket = new ServerSocket(this.server.port + 1);
+		System.out.println("[Debug]: [Fetch]: port: " + (this.server.port + 1));
+
+		try{
+			s = this.dataSocket.accept();
+			dataRes = new Scanner(s.getInputStream());
+			dataOut = new DataOutputStream(s.getOutputStream());
+
+		} catch(Exception e){
+			
+			System.err.println("[Debug @ fetch()]: failed to open data I/O stream, dropping fetch request...");
+			sendMessage("FetchRes dropped");
+			cleanupFetch(s, fileStream);
+			return;
+		}
+
+		// Control
+		int iteration;
+
+		// Send file loop
+		fileStream.read(content);
+		while((length = fileStream.read(nextContent)) != -1){
+		
+			// Try to clean nextContent buffer if it's size varied
+			if(length < nextContent.length){
+
+				byte[] tmp = new byte[length];
+
+				for (int i = 0; i < length; i++)
+					tmp[i] = nextContent[i];
+				nextContent = tmp;
+				
+				System.out.println("[URGENT Debug]: content length: " + nextContent.length);
+				System.out.printf("[URGENT Debug]: done! next content: \"");
+				for(byte b : nextContent)
+					System.out.printf("%c", (char) b);
+				System.out.println("\"	");
 			}
+
+			// Prepare packet
+			mp.setHeader(pktNb, content.length, (byte) 0);
+			mp.setContent(content);
+
+			System.out.println("[Debug]: sending package " + fileName + " pktNb: " + pktNb);
+			// Send packet
+			mp.sendPacket(dataOut);
+
+			// Reset counter
+			iteration = 0;
+
+			// Wait for response
+			while(true){
+				if(dataRes.hasNextLine()){
+
+					String msg = dataRes.nextLine();
+					
+					System.out.println("[Debug]: received \"" + msg + "\"");
+					
+					if(msg.equals("ok")) break;
+					// If receive a fail message, re-send the packet
+					else if(msg.equals("fail")){
+						mp.sendPacket(dataOut);
+						iteration = 0;
+					}
+				}
+				// If got no response in MAX_ITERATIONS, stop fetching
+				if(iteration++ > MAX_ITERATIONS){
+					sendMessage("FetchRes dropped");
+					cleanupFetch(s, fileStream);
+					return;
+				}
+			}
+			content = nextContent.clone();
+			pktNb++;
+		}
+
+		// Send last packet
+		System.out.println("[Debug]: sending last packet...");
+		System.out.println("[URGENT Debug]: nextContent.length: " + nextContent.length);
+
+		// Prepare packet
+		mp.setHeader(pktNb, nextContent.length, (byte) 1);
+		mp.setContent(nextContent);
+
+		// Send packet
+		mp.sendPacket(dataOut);
+
+		// Reset counter
+		iteration = 0;
+
+		// Wait for response
+		while(true){
+			if(dataRes.hasNextLine()){
+
+				String msg = dataRes.nextLine();
+				System.out.println("[Debug]: received \"" + msg + "\"");
+				
+				if(msg.equals("ok")) break;
+				// If receive a fail message, re-send the packet
+				else if(msg.equals("fail")){
+					mp.sendPacket(dataOut);
+					iteration = 0;
+				}
+			}
+			// If got no response in MAX_ITERATIONS, stop fetching
+			if(iteration++ > MAX_ITERATIONS){
+				sendMessage("FetchRes dropped");
+				cleanupFetch(s, fileStream);
+				return;
+			}
+		}
+
+		// End fetch
+		sendMessage("FetchRes end");
+
+		// Close streams & socket
+		cleanupFetch(s, fileStream);
+	}
+
+	private void cleanupFetch(Socket s, FileInputStream fs){
+		try{
+			s.close();
+			fs.close();
+		} catch(IOException e){
+			System.out.println("[Debug @ cleanupFetch()]: error closing socket");
 		}
 	}
 }

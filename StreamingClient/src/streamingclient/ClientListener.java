@@ -1,9 +1,8 @@
-
+// checked
 package streamingclient;
 
-import java.io.*;
-import java.util.*;
-import java.net.*;
+import java.util.Scanner;
+import java.net.Socket;
 
 // Listener to get client commands from stdin at client's end
 // No access modifier so only this package (StreamingClient) can access
@@ -13,10 +12,10 @@ class ClientListener extends Thread {
 	private StreamingClient client;
 
 
-
 	// Constructor
-	public ClientListener(){}
-
+	public ClientListener(StreamingClient client){
+		this.client = client;
+	}
 
 
 	// Start listener thread
@@ -26,6 +25,7 @@ class ClientListener extends Thread {
 		Scanner sc = new Scanner(System.in);
 		String command;
 		String[] tokens;
+		String msg;
 
 		// Listen to stdin commands
 		while(true){
@@ -37,18 +37,22 @@ class ClientListener extends Thread {
 			case "help":
 				System.out.println("Commands: ");
 				System.out.println("\thelp - display this message");
-				System.out.println("\trequest <arg1> <arg2> ... (whitespace separated) - send a request to the server");
 				System.out.println("\tclose - send a signal to close connection");
 				System.out.println("\tclear - clear console");
+				System.out.println("\n\tAnything else - ");
 				break;
-			case "request":	// Sends a request message
-				break;
+
 			case "close":
-				StreamingClient.sendMessage("Close");
-				StreamingClient.setConnected(false);
+				this.client.shutdown();
 				return;
+
 			case "clear":
 				clear();
+				break;
+
+			default: 
+				this.client.sendMessage(command);
+				this.client.command = command;
 				break;
 			}
 		}
