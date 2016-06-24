@@ -1,3 +1,4 @@
+// checked
 /*
  * To change this license header, choose License Headers in Project Properties.
  * To change this template file, choose Tools | Templates
@@ -6,101 +7,157 @@
 
 package streamingclient;
 
-import java.util.*;
-import java.io.*;
-import java.net.*;
+import java.io.PrintStream;
+import java.util.Scanner;
+import java.net.Socket;
 
 /**
  *
  * @author Rafael Augusto Monteiro - 9293095
  */
 public class StreamingClient {
+
+	//========
+	//  Constants
+	//========
+
+	// Debug
+	static final String LOOPBACK = "127.0.0.1";
+	static final int PORT = 8080;
 	
-	// private final String name = "teste1.mp4";
-
-	private static final String LOOPBACK = "127.0.0.1";
-	private static final int PORT = 8080;
-
-	// Heartbeat message
-	private static final String HEARTBEAT = "heartbeat";
-
 	// Message delimiter
 	public static final String DELIM = " ";
+	// Heartbeat message
+	public static final String HEARTBEAT = "heartbeat";
+	// Media directory
+	static final String MEDIA_DIR = "media/";
 
-	// Client I/O streams
-	private static Scanner clientIn = null;
-	private static PrintStream clientOut = null;
+	//========
+	//  Attributes
+	//========
+
+	// Server ip & connection port
+	static String ip;
+	static int port;
+	
+	// Server reference
+	private Socket server = null;
+
+	// Server-client I/O streams
+	Scanner clientIn = null;
+	PrintStream clientOut = null;
+
+	// Terminal handler for client -- debug only!
+	private ClientListener term;
+	// Client thread -- debug only!
+	private ClientThread clientThread;
 	
 	// Connection flag
-	private static boolean connected = false;
+	private boolean connected = false;
+	
+	// Sent requests
+	public String command;
 
-	public static synchronized void setConnected(boolean b){ connected = b; }
 
-	/**
-	 * @param args the command line arguments
-	 */
-	public static void main(String[] args) {
+	// Constructor
+	public StreamingClient(){}
+	public StreamingClient(String serverIp, int serverPort){
+		ip = serverIp;
+		port = serverPort;
+	}
+
+
+	// Setters
+	public void setIp(String serverIp){ ip = serverIp; }
+	public void setPort(int serverPort){ port = serverPort; }
+	public synchronized void setConnected(boolean b){ connected = b; }
+
+	public boolean isConnected(){ return connected; }
+
+
+	// Cleanup & close client
+	public void shutdown(){
+
+		System.out.println("Closing client");
 		
-		// Server reference
-		Socket server = null;
-
-		// Stdin scanner
-		Scanner sc = new Scanner(System.in);
+		// Send close message to client
+		sendMessage("Close");
+		setConnected(false);
 		
+		// Stop threads
+		try{
+			this.term.interrupt();
+			this.clientThread.interrupt();
+			this.server.close();
+		} catch(Exception e){}
+		System.exit(0);
+	}
 
-		// Terminal commands for client
-		ClientListener term = new ClientListener();
 
+	public boolean startClient(String initialMsg){
+
+		// Client-server messages
 		String msg;
 		String received;
-		
 		String[] tokens;
 
-		// String ip = sc.nextLine();
-		// int port = sc.nextInt();
+		System.out.println("Starting up client");
+		System.out.println("Connecting...");
 
-		// Try to connect to host
-		try{
-			server = new Socket(LOOPBACK, PORT);
+		try{			
+			server = new Socket(ip, PORT);
 			connected = true;
 		} catch(Exception e){
-			System.err.println("Connection error " + e);
-			System.exit(1);
+			connected = false;
+			System.err.println("[Debug @ startClient()]: Connection error " + e);
+			return false;
 		}
+
+		System.out.println("Connected! Opening I/O streams...");
 
 		// Try to open I/O streams
 		try{
 			clientIn = new Scanner(server.getInputStream());
 			clientOut = new PrintStream(server.getOutputStream());
 		} catch(Exception e){
-			System.err.println("Error opening I/O streams " + e);
-			System.exit(1);
+			return false;
 		}
 
+		System.out.println("Done! Starting terminal listener & GUI");
+		
+		
+		// Terminal handlers -- debug only!
+		this.term = new ClientListener(this);
+		this.clientThread = new ClientThread(this);
+		// Start terminal listener thread
 		term.start();
+		clientThread.start();
+
+		System.out.println("\nSending initial server messages...");
 
 		// Send initial msg
-		msg = "DEBUG FIRST MSG";
-		sendMessage(msg);
+		sendMessage(initialMsg);
 		msg = "";	// Terminate intial message
 		sendMessage(msg);
 
-		while(connected){
-			if(clientIn.hasNextLine() && connected){
+		System.out.println("");
 
-				msg = clientIn.nextLine();
-
-				switch(msg){
-				case HEARTBEAT:
-					sendMessage(HEARTBEAT);
-					break;
-				}
-			}
-		}
+		return true;
 	}
 	
-	public static synchronized void sendMessage(String msg){
+	public synchronized void sendMessage(String msg){
 		System.out.println("[Debug]: sending \"" + msg + "\"");
 		clientOut.println(msg);
+	}
+
+	// Terminal debug main
+	public static void main(String[] args) {
+
+		StreamingClient client = new StreamingClient("127.0.0.1", 8080);
+		client.startClient("Init [Client] \n\tip: 127.0.0.1\n\tport: 8080\n\t---END---");
+		try{
+			client.term.join();
+			System.out.println("[Debug]: term joined!");
+		} catch(Exception e){}
 	}
 }

@@ -1,9 +1,7 @@
 
 package streamingserver;
 
-import java.io.*;
-import java.util.*;
-import java.net.*;
+import java.util.Scanner;
 
 // Listener to get server commands from stdin at server's end
 // No access modifier so only this package (streamingserver) can access
@@ -11,7 +9,6 @@ class ServerListener extends Thread {
 
 	// Store a server reference to the server to close it
 	private StreamingServer server;
-
 
 
 	// Constructor
@@ -25,16 +22,27 @@ class ServerListener extends Thread {
 	public void run(){
 
 		Scanner sc = new Scanner(System.in);
+		String command;
 
 		// Listen to stdin commands
 		while(true){
-			
-			// Shutdown server (cleanup here)
-			if(sc.nextLine().equals("shutdown")){
-				this.server.shutdown();
-				break;
-			} else if(sc.nextLine().equals("clear")){
-				clear();
+			if(sc.hasNextLine()){
+
+				command = sc.nextLine();				
+
+				switch(command){
+				case "help":
+					System.out.println("Commands: ");
+					System.out.println("\thelp - display this message");
+					System.out.println("\tshutdown - close server");
+					System.out.println("\tclear - clear console");
+					break;
+				case "shutdown":
+					this.server.shutdown();
+					return;
+				case "clear":
+					clear();
+				}
 			}
 		}
 	}

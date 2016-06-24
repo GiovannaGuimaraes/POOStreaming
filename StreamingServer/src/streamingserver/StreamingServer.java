@@ -1,3 +1,4 @@
+// checked
 /*
  * To change this license header, choose License Headers in Project Properties.
  * To change this template file, choose Tools | Templates
@@ -6,9 +7,15 @@
 
 package streamingserver;
 
-import java.io.*;
-import java.net.*;
-import java.util.*;
+import java.io.IOException;
+
+import java.util.Scanner;
+import java.util.ArrayList;
+
+import java.net.Socket;
+import java.net.ServerSocket;
+import java.net.SocketException;
+
 
 /**
  *
@@ -16,32 +23,53 @@ import java.util.*;
  */
 public class StreamingServer {
 
+	// Media directory
+	static final String MEDIA_DIR = "media/";
+
+
 	// Socket handler to connect to the network
 	private ServerSocket socket;
+	// Port to connect
+	int port;
 
-	// Server shutdown flag
+	// Server flag
 	private boolean run;
+	private boolean connected;
 
 	// List with reference to all connected clients
 	private ArrayList<ServerThread> clients;
 
 
-
 	// Constructor
-	public StreamingServer(){
+	public StreamingServer(int port){
+		this.clients = new ArrayList<>();
+		this.port = port;
+	}
+
+
+	// Force server shutdown
+	public synchronized void shutdown() {
 		
-		this.clients = new ArrayList<ServerThread>();
-	}
-
-
-
-	public synchronized void shutdown(){
-		// TODO: Create a clients handler to properly shutdown all connections
-		// ArrayList<ServerThread> clients;
+		System.out.println("[Debug]: server shutting down...");
 		this.run = false;
+
+		// Disconnect all clients
+		for(ServerThread st : this.clients){
+			try{
+				st.shutdown();
+			} catch(Exception e){}
+		}
+
+		// Close server socket
+		try{
+			this.socket.close();
+		} catch(Exception e){
+			System.err.println("[Debug @ StreamingServer.shutdown()]: error closing server socket");
+			System.exit(1);
+		}		
 	}
 
-	public void startServer(int port) throws IOException{
+	public void startServer() throws IOException {
 
 		System.out.println("[Debug]: starting server...");
 		
@@ -68,25 +96,30 @@ public class StreamingServer {
 			try {
 				System.out.println("Waiting for connection...");
 				client = this.socket.accept();
-				System.out.println("Client connected!");
-
+				System.out.println("[Debug]: Client connected!");
+				connected = true;
+			} catch(SocketException e){	
+				System.out.println("[Debug]: Socket successfuly closed");
+				connected = false;
 			} catch(Exception e){
-				System.out.println("Connection error: " + e);
-				return;
+				System.err.println("[Debug @ startServer()]: connection error: " + e);
+				connected = false;
 			}
+			if(connected){
+				System.out.println("[Debug]: launching new server thread...");
 
-			System.out.println("[Debug]: launching new server thread...");
-
-			// Launch a thread to handle the new client
-			ServerThread st = new ServerThread(this, client);
-			st.start();
+				// Launch a thread to handle the new client
+				ServerThread st = new ServerThread(this, client);
+				st.start();
+				clients.add(st);
+			}
 		}
 	}
 
 	public static void main(String[] args) throws Exception{
-
-		StreamingServer server = new StreamingServer();
-		server.startServer(8080);
+		StreamingServer server = new StreamingServer(8080);
+		server.startServer();
+		return;
 	}
 }
 
