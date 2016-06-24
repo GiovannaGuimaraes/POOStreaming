@@ -32,10 +32,7 @@ class ServerListener extends Thread {
 
 				switch(command){
 				case "help":
-					System.out.println("Commands: ");
-					System.out.println("\thelp - display this message");
-					System.out.println("\tshutdown - close server");
-					System.out.println("\tclear - clear console");
+					help();
 					break;
 				case "shutdown":
 					this.server.shutdown();
@@ -47,11 +44,18 @@ class ServerListener extends Thread {
 		}
 	}
 
-	private static void clear(){
+	public static void clear(){
 		
 		final String ANSI_CLS = "\u001b[2J";
 		final String ANSI_HOME = "\u001b[H";
 		System.out.print(ANSI_CLS + ANSI_HOME);
 		System.out.flush();
 	}
-}
+
+	public static void help(){
+		System.out.println("\nCommands: ");
+		System.out.println("\thelp - display this message");
+		System.out.println("\tshutdown - close server");
+		System.out.println("\tclear - clear console\n");
+	}
+}	

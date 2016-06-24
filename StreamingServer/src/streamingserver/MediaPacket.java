@@ -39,26 +39,13 @@ public class MediaPacket {
 		this.content[6] = (byte) (contentSize >> 16);
 		this.content[7] = (byte) (contentSize >> 24);
 
-		System.out.println("id: " + id);
-		System.out.println("contentSize: " + contentSize);
-		System.out.println("done: " + end);
-				
 		// Last packet flag
 		this.content[8] = end;
 	}
 
 	public void setContent(byte[] content){
-
-		System.out.println("[Debug]: ===============");
-		System.out.println("[Debug]: setContent");
-		System.out.println("[Debug]: content.length: " + content.length);
-		System.out.println("[Debug]: PACKET_SIZE: " + PACKET_SIZE);
-
 		for (int i = HEADER_SIZE; i < content.length+HEADER_SIZE; i++)
 			this.content[i] = content[i - HEADER_SIZE];
-	
-		System.out.println("[Debug]: setContent end");
-		System.out.println("[Debug]: ===============");
 	}
 
 	public void sendPacket(DataOutputStream dataOut) throws IOException {

@@ -54,7 +54,7 @@ class PacketManager extends Thread {
 			newFile = new File(StreamingClient.MEDIA_DIR + this.packetName);
 			fileStream= new FileOutputStream(newFile);
 		} catch(Exception e){
-		System.err.println("[Debug @ PacketManager.run()]: failed to open file...");
+			System.err.println("[Debug @ PacketManager.run()]: failed to open file...");
 			return;
 		}
 
@@ -128,6 +128,8 @@ class PacketManager extends Thread {
 		} catch(IOException e){
 			System.err.println("[Debug @ PacketManager.run()]: failed to close file");
 		}
+
+		System.out.println("[Debug]: pm thread returning");
 	}
 
 	private void readPacket(byte[] packet) throws IllegalArgumentException {

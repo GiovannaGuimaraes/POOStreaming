@@ -36,6 +36,9 @@ class ServerThread extends Thread {
 	// I/O handlers
 	private Scanner serverIn;
 	private PrintStream serverOut;	// debug?
+	// Data I/O handlers
+	private Scanner dataRes;
+	private DataOutputStream dataOut;
 
 	// Data transfer
 	private ServerSocket dataSocket = null;
@@ -55,6 +58,8 @@ class ServerThread extends Thread {
 
 		// Open communication streams
 		try{
+			this.dataSocket = new ServerSocket(this.server.port + 1);
+
 			this.serverIn = new Scanner(this.client.getInputStream());
 			this.serverOut = new PrintStream(this.client.getOutputStream());
 		} catch(IOException e){
@@ -127,7 +132,8 @@ class ServerThread extends Thread {
 
 				// Waiting for requests
 				msg = this.serverIn.nextLine();
-				System.out.println("[Debug]: [Received]: \"" + msg + "\"");
+				if(!msg.equals(Heartbeat.HEARTBEAT))
+					System.out.println("[Debug]: [Received]: \"" + msg + "\"");
 
 				tokens = msg.split(DELIM);
 
@@ -176,7 +182,8 @@ class ServerThread extends Thread {
 
 	public void sendMessage(String msg){
 		this.serverOut.println(msg);
-		System.out.println("[Debug]: [Sending]: \"" + msg + "\"");
+		if(!msg.equals(Heartbeat.HEARTBEAT))
+			System.out.println("[Debug]: [Sending]: \"" + msg + "\"");
 	}
 
 	public String listFiles(){
@@ -196,7 +203,9 @@ class ServerThread extends Thread {
 
 		// File vars
 		String path = "media/" + fileName;
+		System.out.println("[Debug]: start fetching " + path);
 		this.fileStream = new FileInputStream(new File(path));
+		System.out.println("[Debug]: fileStream opened");
 		
 		// Packet vars
 		int pktNb = 0;
@@ -205,21 +214,28 @@ class ServerThread extends Thread {
 		byte[] content = new byte[MediaPacket.CONTENT_SIZE];
 		byte[] nextContent = new byte[MediaPacket.CONTENT_SIZE];
 
+		System.out.println("[Debug]: packets created");
+
 		// Communication vars
 		Socket s = null;
-		Scanner dataRes = null;
-		DataOutputStream dataOut = null;
 		byte[] response = null;
 
 		// Send start message
 		sendMessage("FetchRes start");
 
 		// Prepare data socket
-		this.dataSocket = new ServerSocket(this.server.port + 1);
+		
 		System.out.println("[Debug]: [Fetch]: port: " + (this.server.port + 1));
 
+		System.out.println("[Debug]: waiting for data socket to open");
+		System.out.flush();
+		
 		try{
+
+			System.out.println("[Debug]: opening data socket");
 			s = this.dataSocket.accept();
+			System.out.println("[Debug]: data socket open");
+
 			dataRes = new Scanner(s.getInputStream());
 			dataOut = new DataOutputStream(s.getOutputStream());
 
@@ -230,6 +246,9 @@ class ServerThread extends Thread {
 			cleanupFetch(s, fileStream);
 			return;
 		}
+
+		System.out.println("[Debug]: connected!");
+		System.out.println("[Debug]: start sending packets");
 
 		// Control
 		int iteration;
@@ -246,19 +265,12 @@ class ServerThread extends Thread {
 				for (int i = 0; i < length; i++)
 					tmp[i] = nextContent[i];
 				nextContent = tmp;
-				
-				System.out.println("[URGENT Debug]: content length: " + nextContent.length);
-				System.out.printf("[URGENT Debug]: done! next content: \"");
-				for(byte b : nextContent)
-					System.out.printf("%c", (char) b);
-				System.out.println("\"	");
 			}
 
 			// Prepare packet
 			mp.setHeader(pktNb, content.length, (byte) 0);
 			mp.setContent(content);
 
-			System.out.println("[Debug]: sending package " + fileName + " pktNb: " + pktNb);
 			// Send packet
 			mp.sendPacket(dataOut);
 
@@ -293,7 +305,6 @@ class ServerThread extends Thread {
 
 		// Send last packet
 		System.out.println("[Debug]: sending last packet...");
-		System.out.println("[URGENT Debug]: nextContent.length: " + nextContent.length);
 
 		// Prepare packet
 		mp.setHeader(pktNb, nextContent.length, (byte) 1);
@@ -329,6 +340,7 @@ class ServerThread extends Thread {
 
 		// End fetch
 		sendMessage("FetchRes end");
+		System.out.println("[Debug]: file successfully uploaded");
 
 		// Close streams & socket
 		cleanupFetch(s, fileStream);
