@@ -33,9 +33,9 @@ public class ClientThread extends Thread {
 		while (this.client.isConnected()) {
 			if (client.clientIn.hasNextLine() && this.client.isConnected()) {
 
-				System.out.println("[Debug]: waiting for server message...");
 				msg = client.clientIn.nextLine();
-				System.out.println("[Debug]: [Received]: \"" + msg + "\"");
+				if(!msg.equals(StreamingClient.HEARTBEAT))
+					System.out.println("[Debug]: [Received]: \"" + msg + "\"");
 
 				tokens = msg.split(StreamingClient.DELIM);
 
@@ -60,13 +60,14 @@ public class ClientThread extends Thread {
 					
 					// Transfer begin
 					if(tokens[1].equals("start") && !isFetching){
-						
+								
+						System.out.println("[Debug]: start received, starting fetch");
 						try{
 							dataSocket = new Socket(StreamingClient.ip,
 										StreamingClient.port+1);
 							
-							System.out.println("[Debug]: [Fetch]: trying to connect to " + 
-										StreamingClient.ip +
+							System.out.println("[Debug]: [Fetch]: connected to " + 
+										StreamingClient.ip + ":" +
 										(StreamingClient.port+1));
 
 							pm = new PacketManager(dataSocket,
@@ -94,11 +95,16 @@ public class ClientThread extends Thread {
 					// Transfer end
 					} else if(tokens[1].equals("end")){
 						
+						System.out.println("[Debug]: fetch has ended, setting isFetching false");
 						try{
+
+							System.out.println("[Debug]: waiting for pm to join");
 							pm.join();
 							dataSocket.close();
+
 						} catch(Exception e){}
 
+						System.out.println("[Debug]: joined");
 						isFetching = false;
 					}
 					break;

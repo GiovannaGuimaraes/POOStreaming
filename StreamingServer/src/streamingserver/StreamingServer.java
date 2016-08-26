@@ -83,7 +83,8 @@ public class StreamingServer {
 		System.out.println("[Debug]: preparing server listener...");
 		listener.start();
 		System.out.println("[Debug]: done!");
-		
+
+		ServerListener.help();		
 
 		// Start running server
 		this.run = true;

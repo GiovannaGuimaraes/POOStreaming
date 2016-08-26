@@ -66,8 +66,6 @@ class Heartbeat extends Thread {
 			// If connection was closed, stop this thread
 			if(!this.thread.isConnected()) return;
 
-			System.out.println("[Debug]: Sending " + HEARTBEAT);
-
 			// Send heartbeat message
 			this.thread.sendMessage(HEARTBEAT);
 			this.thread.setHeartbeat(false);
